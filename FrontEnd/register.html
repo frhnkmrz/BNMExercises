@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Register</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    #registerForm {
+      background: white;
+      padding: 30px 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      width: 320px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: black;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="password"] {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+
+    button[type="submit"] {
+      width: 100%;
+      padding: 12px;
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+
+    button[type="submit"]:hover {
+      background-color: blue;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .link {
+      text-align: center;
+      margin-top: 15px;
+      font-size: 14px;
+    }
+
+    .link a {
+      color: blue;
+      text-decoration: none;
+    }
+
+    .link a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <form id="registerForm">
+    <h1>Register</h1>
+    <div class="form-group">
+      <input type="text" id="name" placeholder="Name" required />
+    </div>
+    <div class="form-group">
+      <input type="email" id="email" placeholder="Email" required />
+    </div>
+    <div class="form-group">
+      <input type="password" id="password" placeholder="Password" required />
+    </div>
+    <button type="submit">Register</button>
+
+    <div class="link">
+      Already have an account? <a href="http://127.0.0.1:5500/FrontEnd/login.html">Login here</a>
+    </div>
+  </form>
+
+  <script>
+    document.getElementById('registerForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+
+      const name = document.getElementById('name').value;
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      try {
+        const res = await fetch('http://127.0.0.1:8000/api/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({ name, email, password })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          alert('Registration successful! Please log in.');
+          window.location.href = 'login.html';
+        } else {
+          alert(data.message || 'Registration failed');
+        }
+      } catch (error) {
+        alert('Network or server error');
+        console.error(error);
+      }
+    });
+  </script>
+
+</body>
+</html>

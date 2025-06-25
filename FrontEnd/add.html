@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Add Hotel</title>
+  <script src="https://cdn.ckeditor.com/ckeditor5/39.0.1/classic/ckeditor.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<!-- Manage Menu -->
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm mb-4">
+  <div class="container">
+    <a class="navbar-brand fw-bold text-primary" href="dashboard.html">Hotel Admin</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#manageMenu" aria-controls="manageMenu" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="manageMenu">
+      <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+        <li class="nav-item">
+          <a class="nav-link" href="dashboard.html">Dashboard</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="add.html">Add Hotel</a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<div class="container py-4">
+  <h3 class="text-primary mb-4">Add New Hotel</h3>
+
+  <form id="hotelForm" class="card p-4 shadow-sm">
+    <div class="mb-3">
+      <input type="text" id="title" class="form-control" placeholder="Title" required />
+    </div>
+    <div class="mb-3">
+      <input type="text" id="category" class="form-control" placeholder="Category" required />
+    </div>
+    <div class="mb-3">
+      <input type="number" id="price" class="form-control" placeholder="Price per Night" required />
+    </div>
+    <div class="mb-3">
+      <input type="number" step="0.1" id="rating" class="form-control" placeholder="Rating (e.g. 4.5)" required />
+    </div>
+    <div class="mb-3">
+      <textarea id="description" class="form-control" placeholder="Description" required></textarea>
+    </div>
+    <div class="mb-3">
+      <input type="file" id="image" class="form-control" />
+    </div>
+    <button type="submit" class="btn btn-success w-100">Save Hotel</button>
+  </form>
+</div>
+
+<script>
+  let ckEditorInstance;
+  ClassicEditor
+    .create(document.querySelector('#description'))
+    .then(editor => {
+      ckEditorInstance = editor;
+    })
+    .catch(error => console.error(error));
+
+  const token = localStorage.getItem('token');
+  if (!token) {
+    alert('You are not logged in');
+    window.location.href = 'login.html';
+  }
+
+  document.getElementById('hotelForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData();
+    formData.append('title', document.getElementById('title').value);
+    formData.append('description', ckEditorInstance.getData());
+    formData.append('category', document.getElementById('category').value);
+    formData.append('price_per_night', document.getElementById('price').value);
+    formData.append('rating', document.getElementById('rating').value);
+
+    const image = document.getElementById('image').files[0];
+    if (image) formData.append('image', image);
+
+    const res = await fetch('http://127.0.0.1:8000/api/hotels', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Accept': 'application/json'
+      },
+      body: formData
+    });
+
+    if (res.ok) {
+      alert('Hotel added successfully!');
+      window.location.href = 'index.html';
+    } else {
+      alert('Failed to add hotel.');
+    }
+  });
+
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    const res = await fetch('http://127.0.0.1:8000/api/logout', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Accept': 'application/json'
+      }
+    });
+    if (res.ok) {
+      localStorage.removeItem('token');
+      window.location.href = 'login.html';
+    }
+  });
+</script>
+
+</body>
+</html>

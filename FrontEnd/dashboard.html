@@ -1,11 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Manage Hotels</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <script src="https://cdn.ckeditor.com/ckeditor5/39.0.1/classic/ckeditor.js"></script>
 </head>
 <body class="bg-light">
 
@@ -35,37 +34,6 @@
     <button id="logoutBtn" class="btn btn-danger">Logout</button>
   </div>
 
-  <!-- Hotel Form -->
-  <div class="card mb-4">
-    <div class="card-body">
-      <h5>Add / Edit Hotel</h5>
-      <form id="hotelForm">
-        <input type="hidden" id="hotelId">
-        <div class="row">
-          <div class="col-md-6 mb-3">
-            <input type="text" id="title" class="form-control" placeholder="Title" required />
-          </div>
-          <div class="col-md-6 mb-3">
-            <input type="text" id="category" class="form-control" placeholder="Category" required />
-          </div>
-          <div class="col-md-6 mb-3">
-            <input type="number" id="price" class="form-control" placeholder="Price per Night" required />
-          </div>
-          <div class="col-md-6 mb-3">
-            <input type="number" step="0.1" id="rating" class="form-control" placeholder="Rating (e.g. 4.5)" required />
-          </div>
-          <div class="col-md-12 mb-3">
-            <textarea id="description" class="form-control" placeholder="Description"></textarea>
-          </div>
-          <div class="col-md-12 mb-3">
-            <input type="file" id="image" class="form-control" />
-          </div>
-        </div>
-        <button type="submit" class="btn btn-success">Save Hotel</button>
-      </form>
-    </div>
-  </div>
-
   <!-- Hotel Cards -->
   <div id="hotelContainer" class="row g-4"></div>
 
@@ -82,15 +50,9 @@
     window.location.href = 'login.html';
   }
 
-  let ckEditorInstance;
-  ClassicEditor.create(document.querySelector('#description'))
-    .then(editor => ckEditorInstance = editor)
-    .catch(error => console.error(error));
-
   const hotelsPerPage = 6;
   let currentPage = 1;
   let hotels = [];
-  let hotelDataMap = {};
 
   async function fetchHotels() {
     const res = await fetch('http://127.0.0.1:8000/api/hotels', {
@@ -112,7 +74,6 @@
     const pageHotels = hotels.slice(start, start + hotelsPerPage);
 
     pageHotels.forEach(hotel => {
-      hotelDataMap[hotel.id] = hotel;
       const card = `
         <div class="col-md-4">
           <div class="card h-100 shadow-sm">
@@ -151,52 +112,6 @@
     }
   }
 
-  document.getElementById('hotelForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const formData = new FormData();
-    formData.append('title', document.getElementById('title').value);
-    formData.append('description', ckEditorInstance.getData());
-    formData.append('category', document.getElementById('category').value);
-    formData.append('price_per_night', document.getElementById('price').value);
-    formData.append('rating', document.getElementById('rating').value);
-    const image = document.getElementById('image').files[0];
-    if (image) formData.append('image', image);
-
-    const id = document.getElementById('hotelId').value;
-    const url = id ? `http://127.0.0.1:8000/api/hotels/${id}` : 'http://127.0.0.1:8000/api/hotels';
-    const method = id ? 'POST' : 'POST';
-
-    const res = await fetch(url, {
-      method: method,
-      headers: {
-        'Authorization': 'Bearer ' + token,
-        'Accept': 'application/json'
-      },
-      body: formData
-    });
-
-    if (res.ok) {
-      alert(id ? 'Hotel updated!' : 'Hotel created!');
-      document.getElementById('hotelForm').reset();
-      ckEditorInstance.setData('');
-      document.getElementById('hotelId').value = '';
-      fetchHotels();
-    } else {
-      alert('Save failed.');
-    }
-  });
-
-  function editHotelById(id) {
-    const hotel = hotelDataMap[id];
-    document.getElementById('hotelId').value = hotel.id;
-    document.getElementById('title').value = hotel.title;
-    ckEditorInstance.setData(hotel.description);
-    document.getElementById('category').value = hotel.category;
-    document.getElementById('price').value = hotel.price_per_night;
-    document.getElementById('rating').value = hotel.rating;
-    window.scrollTo(0, 0);
-  }
-
   async function deleteHotel(id) {
     if (!confirm('Are you sure to delete this hotel?')) return;
     const res = await fetch(`http://127.0.0.1:8000/api/hotels/${id}`, {
@@ -224,7 +139,6 @@
     });
     if (res.ok) {
       localStorage.removeItem('token');
-      alert('Logged out');
       window.location.href = 'login.html';
     }
   });

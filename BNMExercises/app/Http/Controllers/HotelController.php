@@ -2,16 +2,26 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Models\Hotel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class HotelController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return Hotel::latest()->paginate(6);
+        $query = Hotel::query();
+
+        // Paginated list
+        $hotels = $query->latest()->paginate(6);
+
+        // Add image_url to each hotel
+        $hotels->getCollection()->transform(function ($hotel) {
+            $hotel->image_url = $hotel->image ? asset('storage/' . $hotel->image) : null;
+            return $hotel;
+        });
+
+        return response()->json($hotels);
     }
 
     public function store(Request $request)
@@ -25,17 +35,26 @@ class HotelController extends Controller
             'image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048'
         ]);
 
-        if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('hotels', 'public');
+        try {
+            if ($request->hasFile('image')) {
+                $validated['image'] = $request->file('image')->store('hotels', 'public');
+            }
+
+            $hotel = Hotel::create($validated);
+            $hotel->image_url = $hotel->image ? asset('storage/' . $hotel->image) : null;
+
+            return response()->json([
+                'message' => 'Hotel created successfully',
+                'hotel' => $hotel
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Failed to create hotel', 'error' => $e->getMessage()], 500);
         }
-
-        $hotel = Hotel::create($validated);
-
-        return response()->json(['message' => 'Hotel created successfully', 'hotel' => $hotel], 201);
     }
 
     public function show(Hotel $hotel)
     {
+        $hotel->image_url = $hotel->image ? asset('storage/' . $hotel->image) : null;
         return response()->json($hotel);
     }
 
@@ -50,27 +69,39 @@ class HotelController extends Controller
             'image' => 'sometimes|image|mimes:jpg,jpeg,png|max:2048'
         ]);
 
-        if ($request->hasFile('image')) {
-            // Delete old image
-            if ($hotel->image) {
-                Storage::disk('public')->delete($hotel->image);
+        try {
+            if ($request->hasFile('image')) {
+                if ($hotel->image) {
+                    Storage::disk('public')->delete($hotel->image);
+                }
+
+                $validated['image'] = $request->file('image')->store('hotels', 'public');
             }
-            $validated['image'] = $request->file('image')->store('hotels', 'public');
+
+            $hotel->update($validated);
+            $hotel->image_url = $hotel->image ? asset('storage/' . $hotel->image) : null;
+
+            return response()->json([
+                'message' => 'Hotel updated successfully',
+                'hotel' => $hotel
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Failed to update hotel', 'error' => $e->getMessage()], 500);
         }
-
-        $hotel->update($validated);
-
-        return response()->json(['message' => 'Hotel updated successfully', 'hotel' => $hotel]);
     }
 
     public function destroy(Hotel $hotel)
     {
-        if ($hotel->image) {
-            Storage::disk('public')->delete($hotel->image);
+        try {
+            if ($hotel->image) {
+                Storage::disk('public')->delete($hotel->image);
+            }
+
+            $hotel->delete();
+
+            return response()->json(['message' => 'Hotel deleted successfully']);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Failed to delete hotel', 'error' => $e->getMessage()], 500);
         }
-
-        $hotel->delete();
-
-        return response()->json(['message' => 'Hotel deleted successfully']);
     }
 }

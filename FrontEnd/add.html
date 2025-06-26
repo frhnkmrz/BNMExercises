@@ -6,6 +6,7 @@
   <title>Add Hotel</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
   <script src="https://cdn.ckeditor.com/ckeditor5/39.0.1/classic/ckeditor.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 </head>
 <body class="bg-light">
 
@@ -18,12 +19,8 @@
     </button>
     <div class="collapse navbar-collapse" id="manageMenu">
       <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
-        <li class="nav-item">
-          <a class="nav-link" href="dashboard.html">Dashboard</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link active" href="add.html">Add Hotel</a>
-        </li>
+        <li class="nav-item"><a class="nav-link" href="dashboard.html">Dashboard</a></li>
+        <li class="nav-item"><a class="nav-link active" href="add.html">Add Hotel</a></li>
       </ul>
     </div>
   </div>
@@ -39,9 +36,7 @@
   <!-- Hotel Form -->
   <div class="card mb-4">
     <div class="card-body">
-      <h5>Add Hotel</h5>
       <form id="hotelForm">
-        <input type="hidden" id="hotelId">
         <div class="row">
           <div class="col-md-6 mb-3">
             <input type="text" id="title" class="form-control" placeholder="Title" required />
@@ -66,35 +61,49 @@
       </form>
     </div>
   </div>
+</div>
 
-<!-- Bootstrap JS Bundle (required for navbar toggle) -->
+<!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-  let ckEditorInstance;
+  // Axios config for Sanctum session
+  axios.defaults.baseURL = 'http://127.0.0.1:8000';
+  axios.defaults.withCredentials = true;
 
-  ClassicEditor.create(document.querySelector('#description'))
-    .then(editor => {
-      ckEditorInstance = editor;
-    })
-    .catch(error => {
-      console.error('CKEditor init error:', error);
-    });
+  // Attach X-XSRF-TOKEN from cookie
+  axios.interceptors.request.use(config => {
+    const token = getCookie('XSRF-TOKEN');
+    if (token) {
+      config.headers['X-XSRF-TOKEN'] = decodeURIComponent(token);
+    }
+    return config;
+  });
 
-  const token = localStorage.getItem('token');
-  if (!token) {
-    alert('You are not logged in');
-    window.location.href = 'login.html';
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    return parts.length === 2 ? parts.pop().split(';').shift() : '';
   }
+
+  // Check session login 
+  document.addEventListener('DOMContentLoaded', async () => {
+    try {
+      await axios.get('/sanctum/csrf-cookie'); 
+    } catch (err) {
+      alert('Login required');
+      window.location.href = 'login.html';
+    }
+  });
+
+  let ckEditorInstance;
+  ClassicEditor.create(document.querySelector('#description'))
+    .then(editor => ckEditorInstance = editor)
+    .catch(err => console.error('CKEditor init error:', err));
 
   document.getElementById('hotelForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-
-    // Ensure CKEditor is ready
-    if (!ckEditorInstance) {
-      alert('Editor not ready');
-      return;
-    }
+    if (!ckEditorInstance) return alert('Editor not ready');
 
     const formData = new FormData();
     formData.append('title', document.getElementById('title').value);
@@ -102,49 +111,31 @@
     formData.append('category', document.getElementById('category').value);
     formData.append('price_per_night', document.getElementById('price').value);
     formData.append('rating', document.getElementById('rating').value);
-
     const image = document.getElementById('image').files[0];
-    if (image) {
-      formData.append('image', image);
-    }
+    if (image) formData.append('image', image);
 
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/hotels', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + token,
-          'Accept': 'application/json'
-        },
-        body: formData
+      await axios.post('/hotels', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
-
-      if (res.ok) {
-        alert('Hotel added successfully!');
-        window.location.href = 'dashboard.html';
+      alert('Hotel added successfully!');
+      window.location.href = 'dashboard.html';
+    } catch (error) {
+      const errData = error.response?.data;
+      if (errData?.errors) {
+        alert(Object.values(errData.errors).flat().join('\n'));
       } else {
-        const errorData = await res.json();
-        console.error(errorData);
-        alert('Failed to add hotel. Please check the form and try again.');
+        alert('Failed to add hotel.');
       }
-    } catch (err) {
-      console.error('Request error:', err);
-      alert('Something went wrong while saving the hotel.');
+      console.error(error);
     }
   });
 
   document.getElementById('logoutBtn').addEventListener('click', async () => {
-    const res = await fetch('http://127.0.0.1:8000/api/logout', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + token,
-        'Accept': 'application/json'
-      }
-    });
-
-    if (res.ok) {
-      localStorage.removeItem('token');
+    try {
+      await axios.post('/logout');
       window.location.href = 'login.html';
-    } else {
+    } catch (err) {
       alert('Logout failed.');
     }
   });

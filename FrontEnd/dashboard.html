@@ -5,10 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Dashboard</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 </head>
 <body class="bg-light">
 
-<!-- Manage Menu -->
+<!-- Navigation Bar -->
 <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm mb-4">
   <div class="container">
     <a class="navbar-brand fw-bold text-primary" href="dashboard.html">Hotel Admin</a>
@@ -44,33 +45,47 @@
 </div>
 
 <script>
-  const token = localStorage.getItem('token');
-  if (!token) {
-    alert('You are not logged in');
-    window.location.href = 'login.html';
+  axios.defaults.baseURL = 'http://127.0.0.1:8000';
+  axios.defaults.withCredentials = true;
+
+  // Automatically send CSRF token via header
+  axios.interceptors.request.use(config => {
+    const token = getCookie('XSRF-TOKEN');
+    if (token) {
+      config.headers['X-XSRF-TOKEN'] = decodeURIComponent(token);
+    }
+    return config;
+  });
+
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    return parts.length === 2 ? parts.pop().split(';').shift() : '';
   }
 
   let hotels = [];
   let currentPage = 1;
 
-  async function fetchHotels(page = 1) {
-    const res = await fetch(`http://127.0.0.1:8000/api/hotels?page=${page}`, {
-      headers: {
-        'Authorization': 'Bearer ' + token,
-        'Accept': 'application/json'
-      }
-    });
-
-    if (!res.ok) {
-      alert("Failed to fetch hotel data.");
-      return;
+  async function checkAuth() {
+    try {
+      await axios.get('/dashboard'); 
+    } catch (error) {
+      alert('Unauthorized. Please login.');
+      window.location.href = 'login.html';
     }
+  }
 
-    const data = await res.json();
-    hotels = data.data;
-    currentPage = data.current_page;
-    renderHotels();
-    renderPagination(data);
+  async function fetchHotels(page = 1) {
+    try {
+      const res = await axios.get(`/hotels?page=${page}`);
+      const data = res.data;
+      hotels = data.data;
+      currentPage = data.current_page;
+      renderHotels();
+      renderPagination(data);
+    } catch (err) {
+      alert("Failed to fetch hotel data.");
+    }
   }
 
   function renderHotels() {
@@ -114,37 +129,27 @@
 
   async function deleteHotel(id) {
     if (!confirm('Are you sure you want to delete this hotel?')) return;
-    const res = await fetch(`http://127.0.0.1:8000/api/hotels/${id}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': 'Bearer ' + token,
-        'Accept': 'application/json'
-      }
-    });
-    if (res.ok) {
+    try {
+      await axios.delete(`/hotels/${id}`);
       alert('Hotel deleted successfully');
       fetchHotels(currentPage);
-    } else {
+    } catch {
       alert('Delete failed');
     }
   }
 
   document.getElementById('logoutBtn').addEventListener('click', async () => {
-    const res = await fetch('http://127.0.0.1:8000/api/logout', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + token,
-        'Accept': 'application/json'
-      }
-    });
-    if (res.ok) {
-      localStorage.removeItem('token');
+    try {
+      await axios.post('/logout');
+      alert('Logged out');
       window.location.href = 'login.html';
+    } catch (err) {
+      alert('Logout failed');
     }
   });
 
-  // Initial fetch
-  fetchHotels();
+  // Initial checks and fetch
+  checkAuth().then(fetchHotels);
 </script>
 
 </body>

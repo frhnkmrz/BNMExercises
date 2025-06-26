@@ -11,9 +11,7 @@ class HotelController extends Controller
 {
     public function index()
     {
-        return response()->json([
-            'hotels' => Hotel::latest()->get()
-        ]);
+        return Hotel::latest()->paginate(6);
     }
 
     public function store(Request $request)

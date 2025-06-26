@@ -18,7 +18,7 @@
     <div class="collapse navbar-collapse" id="manageMenu">
       <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
         <li class="nav-item">
-          <a class="nav-link" href="dashboard.html">Dashboard</a>
+          <a class="nav-link active" href="dashboard.html">Dashboard</a>
         </li>
         <li class="nav-item">
           <a class="nav-link" href="add.html">Add Hotel</a>
@@ -50,30 +50,34 @@
     window.location.href = 'login.html';
   }
 
-  const hotelsPerPage = 6;
-  let currentPage = 1;
   let hotels = [];
+  let currentPage = 1;
 
-  async function fetchHotels() {
-    const res = await fetch('http://127.0.0.1:8000/api/hotels', {
+  async function fetchHotels(page = 1) {
+    const res = await fetch(`http://127.0.0.1:8000/api/hotels?page=${page}`, {
       headers: {
         'Authorization': 'Bearer ' + token,
         'Accept': 'application/json'
       }
     });
+
+    if (!res.ok) {
+      alert("Failed to fetch hotel data.");
+      return;
+    }
+
     const data = await res.json();
-    hotels = data.hotels;
+    hotels = data.data;
+    currentPage = data.current_page;
     renderHotels();
-    renderPagination();
+    renderPagination(data);
   }
 
   function renderHotels() {
     const container = document.getElementById('hotelContainer');
     container.innerHTML = '';
-    const start = (currentPage - 1) * hotelsPerPage;
-    const pageHotels = hotels.slice(start, start + hotelsPerPage);
 
-    pageHotels.forEach(hotel => {
+    hotels.forEach(hotel => {
       const card = `
         <div class="col-md-4">
           <div class="card h-100 shadow-sm">
@@ -95,25 +99,21 @@
     });
   }
 
-  function renderPagination() {
+  function renderPagination(data) {
     const pagination = document.getElementById('pagination');
     pagination.innerHTML = '';
-    const pageCount = Math.ceil(hotels.length / hotelsPerPage);
-    for (let i = 1; i <= pageCount; i++) {
+
+    for (let i = 1; i <= data.last_page; i++) {
       const li = document.createElement('li');
-      li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+      li.className = `page-item ${i === data.current_page ? 'active' : ''}`;
       li.innerHTML = `<button class="page-link">${i}</button>`;
-      li.addEventListener('click', () => {
-        currentPage = i;
-        renderHotels();
-        renderPagination();
-      });
+      li.addEventListener('click', () => fetchHotels(i));
       pagination.appendChild(li);
     }
   }
 
   async function deleteHotel(id) {
-    if (!confirm('Are you sure to delete this hotel?')) return;
+    if (!confirm('Are you sure you want to delete this hotel?')) return;
     const res = await fetch(`http://127.0.0.1:8000/api/hotels/${id}`, {
       method: 'DELETE',
       headers: {
@@ -122,8 +122,8 @@
       }
     });
     if (res.ok) {
-      alert('Hotel deleted');
-      fetchHotels();
+      alert('Hotel deleted successfully');
+      fetchHotels(currentPage);
     } else {
       alert('Delete failed');
     }
@@ -143,6 +143,7 @@
     }
   });
 
+  // Initial fetch
   fetchHotels();
 </script>
 

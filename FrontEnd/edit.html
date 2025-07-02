@@ -39,45 +39,56 @@
 </div>
 
 <script>
-  // Axios config
   axios.defaults.baseURL = 'http://127.0.0.1:8000';
-  axios.defaults.withCredentials = true;
 
-  // Attach CSRF token from cookie
+  // Automatically attach token from localStorage
   axios.interceptors.request.use(config => {
-    const token = getCookie('XSRF-TOKEN');
-    if (token) config.headers['X-XSRF-TOKEN'] = decodeURIComponent(token);
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
     return config;
   });
 
-  function getCookie(name) {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    return parts.length === 2 ? parts.pop().split(';').shift() : '';
-  }
-
+  const hotelId = new URLSearchParams(window.location.search).get('id');
   let ckEditorInstance;
-  let hotelId = new URLSearchParams(window.location.search).get('id');
 
-  ClassicEditor.create(document.querySelector('#description'))
-    .then(editor => {
-      ckEditorInstance = editor;
-      loadHotel(); 
-    })
-    .catch(console.error);
+  // On load, check auth and load editor + data
+  document.addEventListener('DOMContentLoaded', async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('Unauthorized. Please log in.');
+      return window.location.href = 'login.html';
+    }
+
+    try {
+      ClassicEditor.create(document.querySelector('#description'))
+        .then(editor => {
+          ckEditorInstance = editor;
+          loadHotel(); // Load after editor ready
+        })
+        .catch(error => console.error('CKEditor error:', error));
+    } catch (err) {
+      console.error(err);
+      alert('Something went wrong.');
+      window.location.href = 'login.html';
+    }
+  });
 
   async function loadHotel() {
     try {
-      const res = await axios.get(`/hotels/${hotelId}`);
+      const res = await axios.get(`/api/hotels/${hotelId}`);
       const data = res.data;
+
       document.getElementById('title').value = data.title;
       document.getElementById('category').value = data.category;
       document.getElementById('price').value = data.price_per_night;
       document.getElementById('rating').value = data.rating;
       ckEditorInstance.setData(data.description);
     } catch (err) {
-      alert('Failed to load hotel data');
-      window.location.href = 'dashboard.html';
+      alert('Failed to load hotel. Please login again.');
+      console.error(err);
+      window.location.href = 'login.html';
     }
   }
 
@@ -86,29 +97,29 @@
 
     const formData = new FormData();
     formData.append('title', document.getElementById('title').value);
-    formData.append('description', ckEditorInstance.getData());
     formData.append('category', document.getElementById('category').value);
     formData.append('price_per_night', document.getElementById('price').value);
-    formData.append('rating', parseFloat(document.getElementById('rating').value));
+    formData.append('rating', document.getElementById('rating').value);
+    formData.append('description', ckEditorInstance.getData());
+
     const image = document.getElementById('image').files[0];
     if (image) formData.append('image', image);
 
-    formData.append('_method', 'PUT'); 
+    formData.append('_method', 'PUT'); // Laravel requires this for PUT via POST
 
     try {
-      await axios.post(`/hotels/${hotelId}`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+      await axios.post(`/api/hotels/${hotelId}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
-      alert('Hotel updated!');
+
+      alert('Hotel updated successfully!');
       window.location.href = 'dashboard.html';
     } catch (error) {
       const errorData = error.response?.data;
       if (errorData?.errors) {
         alert(Object.values(errorData.errors).flat().join('\n'));
       } else {
-        alert('Update failed.');
+        alert('Failed to update hotel.');
       }
       console.error(error);
     }

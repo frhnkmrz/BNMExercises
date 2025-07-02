@@ -30,24 +30,7 @@
   </div>
 
   <script>
-    // Configure axios
     axios.defaults.baseURL = 'http://127.0.0.1:8000';
-    axios.defaults.withCredentials = true;
-
-    // Get CSRF token from cookie
-    axios.interceptors.request.use(config => {
-      const token = getCookie('XSRF-TOKEN');
-      if (token) {
-        config.headers['X-XSRF-TOKEN'] = decodeURIComponent(token);
-      }
-      return config;
-    });
-
-    function getCookie(name) {
-      const value = `; ${document.cookie}`;
-      const parts = value.split(`; ${name}=`);
-      return parts.length === 2 ? parts.pop().split(';').shift() : '';
-    }
 
     document.getElementById('registerForm').addEventListener('submit', async function (e) {
       e.preventDefault();
@@ -57,11 +40,7 @@
       const password = document.getElementById('password').value;
 
       try {
-        // Ensure CSRF token is set
-        await axios.get('/sanctum/csrf-cookie');
-
-        // Register user
-        const res = await axios.post('/register', { name, email, password });
+        const res = await axios.post('/api/register', { name, email, password });
 
         alert('Registration successful! Please log in.');
         window.location.href = 'login.html';

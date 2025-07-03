@@ -40,37 +40,44 @@
 
 <script>
   axios.defaults.baseURL = 'http://127.0.0.1:8000';
+  axios.defaults.withCredentials = true;
 
-  // Automatically attach token from localStorage
+  // Attach CSRF token from cookies
   axios.interceptors.request.use(config => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
-    }
+    const token = getCookie('XSRF-TOKEN');
+    if (token) config.headers['X-XSRF-TOKEN'] = decodeURIComponent(token);
     return config;
   });
+
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    return parts.length === 2 ? parts.pop().split(';').shift() : '';
+  }
 
   const hotelId = new URLSearchParams(window.location.search).get('id');
   let ckEditorInstance;
 
-  // On load, check auth and load editor + data
   document.addEventListener('DOMContentLoaded', async () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      alert('Unauthorized. Please log in.');
-      return window.location.href = 'login.html';
-    }
-
     try {
+      // Get CSRF cookie + ensure user is authenticated
+      await axios.get('/sanctum/csrf-cookie');
+      await axios.get('/api/dashboard');
+
+      // Initialize CKEditor then load hotel data
       ClassicEditor.create(document.querySelector('#description'))
         .then(editor => {
           ckEditorInstance = editor;
-          loadHotel(); // Load after editor ready
+          loadHotel();
         })
-        .catch(error => console.error('CKEditor error:', error));
+        .catch(err => {
+          console.error('CKEditor init error:', err);
+          alert('Editor failed to load.');
+        });
+
     } catch (err) {
-      console.error(err);
-      alert('Something went wrong.');
+      console.error('Unauthorized:', err);
+      alert('Unauthorized. Please log in.');
       window.location.href = 'login.html';
     }
   });
@@ -79,16 +86,15 @@
     try {
       const res = await axios.get(`/api/hotels/${hotelId}`);
       const data = res.data;
-
       document.getElementById('title').value = data.title;
       document.getElementById('category').value = data.category;
       document.getElementById('price').value = data.price_per_night;
       document.getElementById('rating').value = data.rating;
       ckEditorInstance.setData(data.description);
     } catch (err) {
-      alert('Failed to load hotel. Please login again.');
-      console.error(err);
-      window.location.href = 'login.html';
+      console.error('Failed to load hotel:', err);
+      alert('Hotel not found or unauthorized.');
+      window.location.href = 'dashboard.html';
     }
   }
 
@@ -105,13 +111,13 @@
     const image = document.getElementById('image').files[0];
     if (image) formData.append('image', image);
 
-    formData.append('_method', 'PUT'); // Laravel requires this for PUT via POST
+    // Use PUT override via POST (for Laravel)
+    formData.append('_method', 'PUT');
 
     try {
       await axios.post(`/api/hotels/${hotelId}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-
       alert('Hotel updated successfully!');
       window.location.href = 'dashboard.html';
     } catch (error) {

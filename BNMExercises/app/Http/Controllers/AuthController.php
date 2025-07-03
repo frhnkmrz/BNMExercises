@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
@@ -31,21 +32,21 @@ class AuthController extends Controller
     {
         $credentials = $request->only('email', 'password');
 
-        if (!auth()->attempt($credentials)) {
+        if (!Auth::attempt($credentials)) {
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
-        $user = auth()->user();
-        $token = $user->createToken('api-token')->plainTextToken;
-
-        return response()->json(['token' => $token], 200);
+        $request->session()->regenerate();
+        return response()->json(['message' => 'Logged in']);
     }
 
     public function logout(Request $request)
     {
-        // Revoke the current access token
-        $request->user()->currentAccessToken()->delete();
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
-        return response()->json(['message' => 'Token revoked. Logged out successfully.']);
+        return response()->json(['message' => 'Logged out']);
     }
+
 }
